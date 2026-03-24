@@ -8,7 +8,7 @@ const app = express();
 const router = express.Router();
 
 // 你的云数据库连接（保持你自己的连接字符串不变）
-const redisClient = new Redis("rediss://default:你自己的连接字符串");
+const redisClient = new Redis("rediss://default:AZmIAAIncDEzNTFkYTE1NzgzODI0ODU1OWRjOGYwNGZlYTUwYjNmNnAxMzkzMDQ@relaxed-sawfly-39304.upstash.io:6379");
 
 // Session 配置
 app.use(session({
