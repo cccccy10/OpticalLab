@@ -3,11 +3,6 @@ command = "npm install"
 functions = "functions"
 
 [[redirects]]
-from = "/optical-lab/*"
-to = "/虚拟光学实验室/:splat"
-status = 200
-
-[[redirects]]
 from = "/*"
 to = "/.netlify/functions/server"
 status = 200
