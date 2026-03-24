@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const router = express.Router();
 
-// 你的数据库
+// 数据库
 const redisClient = new Redis("rediss://default:AzmIAAIncDEzNTFkYTE1NzgzODI0ODU1OWRjOGYwNGZlYTUwYjNmNWNhAxMzkzMDQ=@relaxed-sawfly-39304.upstash.io:6379");
 
 // Session
@@ -20,16 +20,28 @@ app.use(session({
 }));
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../../public')));
 
-// -------------------------------
-// ✅ 修复 Cannot GET / （关键！）
-// -------------------------------
+// ✅ 静态文件绝对正确路径（修复 Cannot GET 关键）
+app.use(express.static(path.join(__dirname, '..', '..', 'public')));
+
+// ---------------------
+// 页面路由（全部写死）
+// ---------------------
 router.get('/', (req, res) => {
-  res.redirect('/login.html');
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'login.html'));
 });
 
-// 登录
+router.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'login.html'));
+});
+
+router.get('/register.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'register.html'));
+});
+
+// ---------------------
+// 登录 / 注册
+// ---------------------
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -44,7 +56,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 注册
 router.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -57,16 +68,21 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 实验室页面权限
-router.get('/OpticalLab/OpticalLab.html', (req, res, next) => {
+// ---------------------
+// 实验室页面
+// ---------------------
+router.get('/OpticalLab/OpticalLab.html', (req, res) => {
   if (!req.session.user) return res.redirect('/login.html');
-  next();
+  res.sendFile(path.join(__dirname, '..', '..', 'public', 'OpticalLab', 'OpticalLab.html'));
 });
 
-// 退出
+// ---------------------
+// 退出登录
+// ---------------------
 router.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect('/login.html');
+  req.session.destroy(() => {
+    res.redirect('/login.html');
+  });
 });
 
 app.use('/', router);
