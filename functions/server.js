@@ -7,10 +7,10 @@ const path = require('path');
 const app = express();
 const router = express.Router();
 
-// 替换成你自己的 Upstash 连接字符串
-const redisClient = new Redis("rediss://default:你的数据库连接字符串");
+// 你的数据库
+const redisClient = new Redis("rediss://default:AzmIAAIncDEzNTFkYTE1NzgzODI0ODU1OWRjOGYwNGZlYTUwYjNmNWNhAxMzkzMDQ=@relaxed-sawfly-39304.upstash.io:6379");
 
-// Session 配置
+// Session
 app.use(session({
   store: new (require('connect-redis')(session))({ client: redisClient }),
   secret: "optical-lab-2026",
@@ -22,7 +22,14 @@ app.use(session({
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../../public')));
 
-// 登录：跳转到你的 OpticalLab.html
+// -------------------------------
+// ✅ 修复 Cannot GET / （关键！）
+// -------------------------------
+router.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
+
+// 登录
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -50,13 +57,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 实验室页面鉴权（精确匹配你的文件名）
+// 实验室页面权限
 router.get('/OpticalLab/OpticalLab.html', (req, res, next) => {
   if (!req.session.user) return res.redirect('/login.html');
   next();
 });
 
-// 退出登录
+// 退出
 router.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/login.html');
