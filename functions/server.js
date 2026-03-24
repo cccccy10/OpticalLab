@@ -7,54 +7,64 @@ const path = require('path');
 const app = express();
 const router = express.Router();
 
-// 你的云数据库连接（保持你自己的连接字符串不变）
-const redisClient = new Redis("rediss://default:AZmIAAIncDEzNTFkYTE1NzgzODI0ODU1OWRjOGYwNGZlYTUwYjNmNnAxMzkzMDQ@relaxed-sawfly-39304.upstash.io:6379");
+// 你的 Upstash 数据库
+const redisClient = new Redis("rediss://default:AzmIAAIncDEzNTFkYTE1NzgzODI0ODU1OWRjOGYwNGZlYTUwYjNmNWNhAxMzkzMDQ=@relaxed-sawfly-39304.upstash.io:6379");
 
-// Session 配置
+// Session
 app.use(session({
   store: new (require('connect-redis')(session))({ client: redisClient }),
-  secret: 'optical-lab-2026',
+  secret: "optical-lab-2026",
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 7*24*3600000 }
+  cookie: { secure: false }
 }));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../../public')));
 
-// 登录路由
+// ------------------------------
+// 登录
+// ------------------------------
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const pwd = await redisClient.hget('lab_users', username);
-  if (pwd && pwd === password) {
-    req.session.isLoggedIn = true;
-    // 直接跳转到实验室页面
-    return res.redirect('/虚拟光学实验室/opticalLab.html');
-  }
-  res.send('账号或密码错误 <a href="/login.html">返回</a>');
-});
-
-// 注册路由
-router.post('/register', async (req, res) => {
-  const { username, password } = req.body;
-  const exists = await redisClient.hexists('lab_users', username);
-  if (exists) return res.send('用户名已存在 <a href="/register.html">返回</a>');
-  await redisClient.hset('lab_users', username, password);
-  res.send('注册成功 <a href="/login.html">去登录</a>');
-});
-
-// ✅ 全局鉴权：所有访问实验室页面的请求都会检查登录状态
-router.use((req, res, next) => {
-  // 如果请求的是实验室页面
-  if (req.path.startsWith('/虚拟光学实验室/')) {
-    if (!req.session.isLoggedIn) {
-      return res.redirect('/login.html');
+  try {
+    const { username, password } = req.body;
+    const realPwd = await redisClient.hget('lab_users', username);
+    if (realPwd && realPwd === password) {
+      req.session.user = username;
+      return res.redirect('/虚拟光学实验室/opticalLab.html');
     }
+    res.send('登录失败 <a href="/login.html">返回</a>');
+  } catch (e) {
+    res.send('服务器错误');
   }
+});
+
+// ------------------------------
+// 注册
+// ------------------------------
+router.post('/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const exists = await redisClient.hexists('lab_users', username);
+    if (exists) return res.send('用户名已存在 <a href="/register.html">返回</a>');
+    await redisClient.hset('lab_users', username, password);
+    res.send('注册成功 <a href="/login.html">登录</a>');
+  } catch (e) {
+    res.send('服务器错误');
+  }
+});
+
+// ------------------------------
+// 拦截实验室页面（无通配符 *）
+// ------------------------------
+router.get('/虚拟光学实验室/opticalLab.html', (req, res, next) => {
+  if (!req.session.user) return res.redirect('/login.html');
   next();
 });
 
-// 退出登录
+// ------------------------------
+// 退出
+// ------------------------------
 router.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/login.html');
