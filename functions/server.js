@@ -7,10 +7,9 @@ const path = require('path');
 const app = express();
 const router = express.Router();
 
-// 你的数据库连接（你自己的）
+// 你的云数据库（保持你自己的）
 const redisClient = new Redis("rediss://default:你自己的连接字符串");
 
-// session 配置
 app.use(session({
   store: new (require('connect-redis')(session))({ client: redisClient }),
   secret: 'optical-lab-2026',
@@ -22,13 +21,13 @@ app.use(session({
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../../public')));
 
-// 登录
+// 登录 → 跳转到英文路径（自动映射中文）
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const pwd = await redisClient.hget('lab_users', username);
   if (pwd && pwd === password) {
     req.session.isLoggedIn = true;
-    return res.redirect('/虚拟光学实验室/opticalLab.html');
+    return res.redirect('/optical-lab/opticalLab.html');
   }
   res.send('账号或密码错误 <a href="/login.html">返回</a>');
 });
@@ -42,13 +41,13 @@ router.post('/register', async (req, res) => {
   res.send('注册成功 <a href="/login.html">去登录</a>');
 });
 
-// 守卫
-router.use('/虚拟光学实验室/*', (req, res, next) => {
+// 守卫用英文路径（关键修复）
+router.use('/optical-lab/*', (req, res, next) => {
   if (req.session.isLoggedIn) return next();
   res.redirect('/login.html');
 });
 
-// 退出
+// 退出登录
 router.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/login.html');
