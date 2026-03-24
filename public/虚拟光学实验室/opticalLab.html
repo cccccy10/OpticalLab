@@ -1,0 +1,2442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Optical Laboratory - Dual Light Source</title>
+<style>
+  body{
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background:#f4f4f4;
+    margin:0;
+    padding:0;
+    display:flex;
+    height: 100vh;
+    overflow: hidden;
+    user-select:none;
+  }
+
+  /* ===== 布局容器 ===== */
+  #main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    align-items: center;
+    position: relative;
+  }
+
+  h1{
+    margin:0 0 20px 0;
+    font-weight:300;
+    color:#333;
+    font-family: "Courier New", monospace;
+  }
+
+  /* ===== Optical bench ===== */
+  #optical-bench{
+    position:relative;
+    width:1200px;
+    height:500px;
+    background-image: url('desk.png');
+    background-size: cover;
+    background-color: #ddd;
+    border:2px solid #ccc;
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    overflow:hidden;
+    flex-shrink: 0;
+  }
+
+  /* 光源（支持两种模式图标切换，这里简化为通用图标） */
+  #light-source{
+    position:absolute;
+    left:-70px;
+    top:53%;
+    transform:translateY(-50%);
+    width:240px;
+    height:120px;
+    background-image: url('Laser.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:10;
+    color:#fff;
+    transition:filter .18s ease, transform .12s ease;
+  }
+  #light-source:hover{
+    filter:drop-shadow(0 0 12px rgba(66,153,225,0.8));
+    transform:translateY(-50%) scale(1.05);
+  }
+  #light-label{
+    font-size:14px;
+    pointer-events:none;
+    background: rgba(0,0,0,0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  #beam{
+    position:absolute;
+    left:150px;
+    top:50%;
+    width:1040px;
+    height:4px;
+    background:red;
+    box-shadow:0 0 10px red;
+    transform:translateY(-50%);
+    opacity:0;
+    transition:opacity .2s ease;
+    z-index:5;
+    pointer-events:none;
+  }
+
+  #rail-track{
+    position:absolute;
+    left:200px;
+    top:65%;
+    width:960px;
+    height:4px;
+    background:#333;
+    border-radius:2px;
+  }
+
+  #rail-scale{
+    position:absolute;
+    left:200px;
+    top:66%;
+    width:960px;
+    height:28px;
+    pointer-events:none;
+  }
+  .tick-mark{
+    position:absolute;
+    top:0;
+    width:1px;
+    height:8px;
+    background:#000;
+    transform:translateX(-0.5px);
+    opacity:.6;
+  }
+  .tick-label{
+    position:absolute;
+    top:10px;
+    transform:translateX(-50%);
+    font-size:14px;
+    color:#000;
+    white-space:nowrap;
+  }
+
+  #components-layer{
+    position:absolute;
+    left:0; top:0;
+    width:100%; height:100%;
+  }
+
+  /* ===== 右侧边栏 ===== */
+  #sidebar {
+    width: 340px;
+    background: #fff;
+    border-left: 1px solid #ddd;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    z-index: 500;
+  }
+
+  .sidebar-section {
+    margin-bottom: 25px;
+  }
+
+  .sidebar-section h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    border-left: 4px solid #007bff;
+    padding-left: 10px;
+    color: #333;
+  }
+
+  .sb-param-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .sb-param-item label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+  }
+
+  .sb-param-item input[type="number"], .sb-param-item input[type="text"] {
+    width: 110px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: right;
+  }
+
+  .sb-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .sidebar-btn {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    border: 1px solid #ddd;
+    background: #f8f9fa;
+  }
+
+  .sidebar-btn:hover { background: #e9ecef; }
+  .btn-save { background: #28a745; color: #fff; border: none; }
+  .btn-save:hover { background: #218838; }
+  .btn-reset { background: #6c757d; color: #fff; border: none; }
+  .btn-reset:hover { background: #5a6268; }
+  .btn-action { background: #007bff; color: #fff; border: none; }
+  .btn-action:hover { background: #0069d9; }
+  .btn-danger { background: #fff; color: #dc3545; border: 1px solid #dc3545; }
+  .btn-danger:hover { background: #dc3545; color: #fff; }
+
+  /* ===== Workbench ===== */
+  #workbench{
+    width:1200px;
+    margin-top:24px;
+    background:#fff;
+    border:1px solid #ccc;
+    border-radius:10px;
+    padding:10px 12px;
+    box-sizing:border-box;
+    overflow:auto;
+    min-height: 200px;
+    flex: 1;
+    color:#333;
+  }
+  .wb-hint{
+    font-size:12px;
+    color:#888;
+    line-height:1.45;
+    white-space:pre-line;
+    margin-bottom:8px;
+  }
+  .wb-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:7px 0;
+    border-bottom:1px dashed #eee;
+  }
+  .wb-left{
+    flex:1;
+    min-width:0;
+    font-size:13px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .wb-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .wb-input{
+    width:110px;
+    padding:6px 8px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    font-size:13px;
+    text-align:right;
+    box-sizing:border-box;
+    outline:none;
+  }
+  .wb-input.invalid{
+    border-color:#dc3545;
+    box-shadow:0 0 0 2px rgba(220,53,69,0.12);
+  }
+  .wb-unit{
+    font-size:12px;
+    color:#666;
+    width:26px;
+  }
+
+  /* ===== Components ===== */
+  .optical-component{
+    position:absolute;
+    top:55%;
+    transform:translateY(-50%);
+    width:60px;
+    cursor:move;
+    z-index:20;
+  }
+  .optical-component img{
+    width:100%;
+    height:auto;
+    filter:drop-shadow(0 0 0 rgba(0,0,0,0));
+    transition:filter .18s ease, transform .12s ease;
+  }
+  .optical-component:hover img{
+    filter:drop-shadow(0 0 12px rgba(66,153,225,0.8));
+    transform:scale(1.05);
+  }
+
+  /* 掉线/未配置 Icon 样式 */
+  .warning-icon {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    background: #dc3545; /* 红色警告 */
+    color: #fff;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: bold;
+    display: none; /* 默认隐藏 */
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 25;
+    pointer-events: none; /* 穿透点击 */
+  }
+
+  .optical-component.unconfigured .warning-icon {
+    display: flex;
+    animation: pulse-red 1.5s infinite;
+  }
+  @keyframes pulse-red {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+  }
+
+  .component-tooltip{
+    position:absolute;
+    top:-55px;
+    left:-10px;
+    width:90px;
+    background:#fff;
+    border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+    padding:6px 0;
+    text-align:center;
+    display:none;
+    z-index:40;
+    box-sizing:border-box;
+  }
+  .component-tooltip .name{
+    font-size:12px;
+    color:#333;
+    margin-bottom:4px;
+    line-height:1.2;
+  }
+  .component-tooltip .delete-btn{
+    width:90%;
+    border:none;
+    border-radius:8px;
+    padding:3px 8px;
+    font-size:12px;
+    background:#dc3545;
+    color:#fff;
+    cursor:pointer;
+  }
+  .component-tooltip .delete-btn:hover{ background:#bb2d3b; }
+
+  /* ===== Modal General ===== */
+  .modal-overlay{
+    display:none;
+    position:fixed;
+    left:0; top:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.5);
+    z-index:1000;
+    justify-content:center;
+    align-items:center;
+  }
+  .modal-content{
+    background:#fff;
+    border-radius:14px;
+    width:460px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.2);
+    padding:24px 24px 20px 24px;
+    box-sizing:border-box;
+    position: relative;
+  }
+  .modal-header{
+    margin:0 0 16px 0;
+    font-size:20px;
+    font-weight:800;
+    color:#333;
+    padding-bottom:10px;
+    border-bottom:1px solid #eee;
+    cursor: move;
+  }
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:16px;
+  }
+  .btn-primary{ background:#007bff; color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;}
+  .btn-primary:hover{ background:#0056b3; }
+  .btn-secondary{ background:#ccc; color:#333; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;}
+  .btn-secondary:hover{ background:#bbb; }
+
+  /* Parameter Form Styles */
+  .param-form{ display:flex; flex-direction:column; gap:12px; }
+  .param-item{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .param-item label{ font-size:14px; font-weight:700; color:#333; flex-shrink:0; }
+  .param-item select, .param-item input, .param-item textarea{ width:240px; padding:8px 10px; border:1px solid #ddd; border-radius:10px; outline:none; font-size:14px; box-sizing:border-box; }
+  .upload-note, .common-functions{ margin-top:4px; font-size:12px; color:#666; line-height:1.35; }
+
+  /* Preview Canvas */
+  #preview-canvas{ width:200px; height:200px; border:1px solid #ddd; border-radius:12px; margin:12px auto 0 auto; display:none; background:#000; }
+
+  /* Segmented Toggle */
+  .seg-toggle{ width:240px; height:38px; border:1px solid #ddd; border-radius:999px; background:#f6f6f6; overflow:hidden; box-sizing:border-box; }
+  .seg-inner{ position:relative; width:100%; height:100%; padding:3px; box-sizing:border-box; display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+  .seg-knob{ position:absolute; top:3px; bottom:3px; left:3px; width:calc((100% - 6px) / 4); border-radius:999px; background:#007bff; transition:transform .18s ease; z-index:1; }
+  .seg{ z-index:2; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#555; cursor:pointer; user-select:none; line-height:1; white-space:nowrap; }
+  .seg.selected{ color:#fff; }
+
+  /* Power Button */
+  .power-btn{ width:240px; padding:10px 12px; border-radius:12px; border:1px solid #ddd; font-size:14px; font-weight:900; cursor:pointer; background:#f7f7f7; color:#666; transition:all .12s ease; text-align:center; }
+  .power-btn.on{ background:#e8f3ff; border-color:#007bff; color:#0056b3; }
+
+  /* Component Chooser (Revised Layout 1x5 with Larger Images) */
+  #component-modal .modal-content {
+    width: 700px;
+    max-width: 95vw;
+  }
+  .component-btn-group{
+    display:flex;
+    justify-content: space-between;
+    gap:12px;
+    margin-bottom:10px;
+  }
+  .component-select-btn{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding:10px 5px;
+    border:1px solid #ddd;
+    border-radius:12px;
+    background:#f9f9f9;
+    cursor:pointer;
+    transition:all .12s ease;
+    height: 130px;
+  }
+  .component-select-btn img {
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+    margin-bottom: 12px;
+    pointer-events: none;
+  }
+  .component-select-btn span {
+    font-size: 13px;
+    font-weight: 700;
+    color: #333;
+    text-align: center;
+  }
+  .component-select-btn:hover{
+    background:#0056b3;
+    border-color:#0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+  .component-select-btn:hover span { color: #fff; }
+  .component-select-btn:hover img { filter: brightness(0) invert(1); }
+
+  /* CCD Viewer Modal */
+  .ccd-view-modal .modal-content{ width:520px; max-width:calc(100vw - 40px); }
+  .ccd-panel{ width:100%; background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.06); box-sizing:border-box; position:relative; }
+  .ccd-canvas{ width:100%; aspect-ratio:1/1; border:1px solid #ddd; border-radius:12px; display:block; background:#000; }
+  .ccd-meta{ margin-top:10px; font-size:12px; color:#666; line-height:1.4; white-space:pre-line; }
+  .ccd-loading{ font-size:12px; color:#888; margin-top:8px; }
+  .ccd-export-btn{ background:#28a745; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; margin-right:10px;}
+  .ccd-export-btn:hover{ background:#218838; }
+
+</style>
+</head>
+
+<body>
+
+<div id="main-container">
+  <h1>Optical Laboratory</h1>
+
+  <div id="optical-bench">
+    <div id="light-source" title="点击配置光源">
+      <span id="light-label">光源 (OFF)</span>
+    </div>
+    <div id="beam"></div>
+    <div id="rail-track"></div>
+    <div id="rail-scale"></div>
+    <div id="components-layer"></div>
+  </div>
+
+  <div id="workbench"></div>
+</div>
+
+<aside id="sidebar">
+  <div class="sidebar-section">
+    <h3>环境基础参数</h3>
+    <div class="sb-param-item">
+      <label>导轨长度 L (cm)</label>
+      <input type="number" id="sb-param-L" value="100">
+    </div>
+    <div class="sb-param-item">
+      <label>采样点数 N</label>
+      <input type="number" id="sb-param-N" value="512">
+    </div>
+    <div class="sb-param-item">
+      <label>计算窗口 (mm)</label>
+      <input type="number" id="sb-param-delta" value="10" step="0.1">
+    </div>
+    
+    <div class="sb-param-item">
+      <label>启用零填充</label>
+      <input type="checkbox" id="sb-param-padding-switch" onchange="togglePaddingInputSidebar()">
+    </div>
+    <div class="sb-param-item" id="sb-padding-factor-group" style="opacity:0.5; pointer-events:none;">
+      <label>填充倍数</label>
+      <input type="number" id="sb-param-padding-factor" value="2" disabled>
+    </div>
+
+    <div class="sb-btn-group">
+      <button class="sidebar-btn btn-save" onclick="saveSidebarSettings()">保存设置</button>
+      <button class="sidebar-btn btn-reset" onclick="resetSidebarParams()">重置</button>
+    </div>
+    <div style="font-size:12px; color:#888; margin-top:8px; line-height:1.4;">
+      说明：修改导轨长度后点击保存，程序会自动根据元件的物理位置(mm)重新排布元件。
+    </div>
+  </div>
+
+  <hr style="width:100%; border:0; border-top:1px solid #eee; margin: 10px 0 25px 0;">
+
+  <div class="sidebar-section">
+    <h3>实验操作</h3>
+    <button class="sidebar-btn btn-action" onclick="openComponentModal()">添加元件</button>
+    <button class="sidebar-btn btn-action" onclick="readCCDAll()">读取 CCD 图像</button>
+    <button class="sidebar-btn btn-action" onclick="open4fModal()">4f系统</button>
+    <button class="sidebar-btn btn-danger" onclick="openClearRailModal()">清空导轨</button>
+  </div>
+</aside>
+
+<div id="light-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-header">光源设置</h3>
+    <div class="param-form">
+      <div class="param-item">
+        <label>光源类型:</label>
+        <select id="src-type" onchange="toggleSourceParams()">
+          <option value="Gaussian">高斯光束 (Laser)</option>
+          <option value="Plane">平行光 (Plane Wave)</option>
+        </select>
+      </div>
+
+      <div class="param-item">
+        <label>波长 &lambda; (nm):</label>
+        <input type="number" id="src-lambda" min="0" step="0.1" />
+      </div>
+
+      <div class="param-item" id="group-gaussian">
+        <label>束腰半径 w<sub>0</sub> (mm):</label>
+        <input type="number" id="src-w0" min="0" step="0.01" />
+      </div>
+
+      <div class="param-item" id="group-plane" style="display:none;">
+        <label>光斑半径 r (mm):</label>
+        <input type="number" id="src-radius" min="0" step="0.1" />
+      </div>
+
+      <div class="param-item">
+        <label>电源开关:</label>
+        <button id="src-power-btn" class="power-btn" onclick="toggleLightPowerFromModal()">OFF</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeLightModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveLightSettings()">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="component-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-header">选择要添加的光学元件</h3>
+    <div class="component-btn-group">
+      
+      <div class="component-select-btn" onclick="selectComponent('CCD')">
+        <img src="CCD.png" onerror="this.src='https://via.placeholder.com/70?text=CCD'">
+        <span>CCD</span>
+      </div>
+      
+      <div class="component-select-btn" onclick="selectComponent('Diaphragm')">
+        <img src="Diaphragm.png" onerror="this.src='https://via.placeholder.com/70?text=Dia'">
+        <span>扩束光阑</span>
+      </div>
+      
+      <div class="component-select-btn" onclick="selectComponent('Diffraction slice')">
+        <img src="Diffraction slice.png" onerror="this.src='https://via.placeholder.com/70?text=Diff'">
+        <span>衍射片</span>
+      </div>
+      
+      <div class="component-select-btn" onclick="selectComponent('Filter')">
+        <img src="Filter.png" onerror="this.src='https://via.placeholder.com/70?text=Filt'">
+        <span>滤光片</span>
+      </div>
+      
+      <div class="component-select-btn" onclick="selectComponent('lens')">
+        <img src="lens.png" onerror="this.src='https://via.placeholder.com/70?text=Lens'">
+        <span>透镜</span>
+      </div>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeComponentModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<div id="param-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-header" id="param-modal-title">元件参数设置</h3>
+    <div class="param-form" id="param-form-content"></div>
+    <canvas id="preview-canvas"></canvas>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeParamModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveParamSettings()">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="ccd-view-modal-template" style="display:none;">
+  <div class="modal-overlay ccd-view-modal">
+    <div class="modal-content">
+      <h3 class="modal-header">CCD 输出图像</h3>
+      <div class="ccd-panel"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeCCDView(this)">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="clear-rail-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-header">确认清空导轨</h3>
+    <div style="color:#444; line-height:1.5; margin-bottom:10px;">
+      确定要清空导轨上的所有光学元件吗？此操作不可撤销。
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeClearRailModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmClearRail()">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="4f-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-header">4f系统设置</h3>
+    <div style="color:#444; line-height:1.5; margin-bottom:10px;">
+      4f系统是一个经典的光学傅里叶变换系统，由两个焦距为f的透镜组成，间隔2f，用于空间滤波、图像处理等应用。<br>
+      点击确认后，将执行以下操作：<br>
+      0. 清空导轨；<br>
+      1. 环境基础参数中导轨总长度变为200cm；<br>
+      2. 光源变为平行光，光斑半径变为10mm；<br>
+      3. 添加衍射片一个，在z=0处，文本型，文本为“S”，高度为9mm；<br>
+      4. 添加两个参数相同的透镜，焦距500mm，口径10mm，分别置于z=500mm与z=1500mm；<br>
+      5. 添加一个滤光片，滤光函数为(x*x+y*y>1)?1:0，置于z=1000mm；<br>
+      6. 添加一个CCD置于z=2000mm处。
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="close4fModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirm4fSetup()">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Global state
+========================= */
+var simParams = { L:100, delta:10, N:512, usePadding:false, paddingFactor:2 };
+
+// 光源：支持两种模式
+// type: "Gaussian" | "Plane"
+// w0_mm: 仅 Gaussian
+// radius_mm: 仅 Plane
+var lightSource = { 
+  type: "Gaussian",
+  lambda_nm: 632.8, 
+  w0_mm: 0.1, 
+  radius_mm: 1.0, 
+  isOn: false 
+};
+
+var componentCounters = { CCD:0, Diaphragm:0, "Diffraction slice":0, Filter:0, lens:0 };
+var nameMap = { CCD:"C", Diaphragm:"D", "Diffraction slice":"S", Filter:"F", lens:"L" };
+
+var componentCount = 0;
+var nextComponentId = 1;
+
+var componentWidth = 60;
+var halfW = componentWidth/2;
+
+// 导轨像素映射
+var railStartX = 200;
+var railEndX   = 1160;
+
+var minLeft = railStartX - halfW;
+var maxLeft = railEndX   - halfW;
+
+var componentGap = 80;
+
+var isDragging = false;
+var pressTimer = null;
+var currentComponent = null;
+
+var currentParamComponent = null;
+
+var ccdModalCounters = 0;
+
+/* =========================
+   Helpers
+========================= */
+function clamp(x,a,b){ return Math.max(a, Math.min(x,b)); }
+function isPowerOfTwo(n){ return n>0 && (n & (n-1)) === 0; }
+
+function getCenterPx(comp){
+  return parseFloat(comp.style.left) + halfW;
+}
+
+function leftToPositionMm(leftPx){
+  var centerPx = leftPx + halfW;
+  var t = (centerPx - railStartX) / (railEndX - railStartX);
+  t = clamp(t, 0, 1);
+  var cm = t * simParams.L;
+  return cm * 10.0; // mm
+}
+
+function positionMmToLeft(mm){
+  var Lmm = simParams.L * 10.0;
+  var mmClamped = clamp(mm, 0, Lmm);
+  var ratio = (Lmm===0) ? 0 : (mmClamped / Lmm);
+  var centerPx = railStartX + ratio * (railEndX - railStartX);
+  var leftPx = centerPx - halfW;
+  return clamp(leftPx, minLeft, maxLeft);
+}
+
+/* =========================
+   Scale ticks
+========================= */
+function niceStep(raw){
+  if(raw<=0) return 1;
+  var exp = Math.floor(Math.log10(raw));
+  var base = raw / Math.pow(10,exp);
+  var nb;
+  if(base<=1) nb=1;
+  else if(base<=2) nb=2;
+  else if(base<=5) nb=5;
+  else nb=10;
+  return nb * Math.pow(10,exp);
+}
+function formatCm(val){
+  var r = Math.round(val);
+  if(Math.abs(val - r) < 1e-9) return String(r) + "cm";
+  return val.toFixed(1) + "cm";
+}
+function updateRailScale(){
+  var railScale = document.getElementById("rail-scale");
+  railScale.innerHTML = "";
+  var L = simParams.L;
+  if(!(L>0)) return;
+
+  var targetTicks = 6;
+  var step = niceStep(L/(targetTicks-1));
+
+  var values = [];
+  for(var v=0; v<=L+1e-9; v+=step){
+    values.push(v);
+    if(values.length>80) break;
+  }
+  if(Math.abs(values[values.length-1]-L)>1e-6) values.push(L);
+  else values[values.length-1]=L;
+
+  for(var i=0;i<values.length;i++){
+    var val = values[i];
+    var ratio = val / L;
+    var leftPercent = (ratio*100) + "%";
+
+    var mark = document.createElement("div");
+    mark.className = "tick-mark";
+    mark.style.left = leftPercent;
+    railScale.appendChild(mark);
+
+    var label = document.createElement("div");
+    label.className = "tick-label";
+    label.style.left = leftPercent;
+    label.textContent = formatCm(val);
+    railScale.appendChild(label);
+  }
+}
+
+/* =========================
+   Light source UI (Dual Mode)
+========================= */
+function updateLightUI(){
+  var label = document.getElementById("light-label");
+  var beam = document.getElementById("beam");
+  var btn = document.getElementById("src-power-btn");
+
+  var typeText = (lightSource.type==="Plane") ? "平行光" : "高斯束";
+  label.textContent = lightSource.isOn ? (typeText+" (ON)") : "光源 (OFF)";
+  
+  beam.style.opacity = lightSource.isOn ? "1" : "0";
+
+  if(btn){
+    btn.textContent = lightSource.isOn ? "ON" : "OFF";
+    if(lightSource.isOn) btn.classList.add("on");
+    else btn.classList.remove("on");
+  }
+  updateBeamColor();
+}
+
+function wavelengthToRGB(lambda) {
+  let gamma = 0.8;
+  let intensityMax = 255;
+  let factor, red, green, blue;
+  if (lambda >= 380 && lambda < 440) {
+    red = -(lambda - 440) / (440 - 380);
+    green = 0.0;
+    blue = 1.0;
+  } else if (lambda >= 440 && lambda < 490) {
+    red = 0.0;
+    green = (lambda - 440) / (490 - 440);
+    blue = 1.0;
+  } else if (lambda >= 490 && lambda < 510) {
+    red = 0.0;
+    green = 1.0;
+    blue = -(lambda - 510) / (510 - 490);
+  } else if (lambda >= 510 && lambda < 580) {
+    red = (lambda - 510) / (580 - 510);
+    green = 1.0;
+    blue = 0.0;
+  } else if (lambda >= 580 && lambda < 645) {
+    red = 1.0;
+    green = -(lambda - 645) / (645 - 580);
+    blue = 0.0;
+  } else if (lambda >= 645 && lambda <= 750) {
+    red = 1.0;
+    green = 0.0;
+    blue = 0.0;
+  } else {
+    red = 0.0;
+    green = 0.0;
+    blue = 0.0;
+  }
+  if (lambda >= 380 && lambda < 420) {
+    factor = 0.3 + 0.7 * (lambda - 380) / (420 - 380);
+  } else if (lambda >= 420 && lambda < 701) {
+    factor = 1.0;
+  } else if (lambda >= 701 && lambda <= 750) {
+    factor = 0.3 + 0.7 * (750 - lambda) / (750 - 701);
+  } else {
+    factor = 0.0;
+  }
+  red = red !== 0 ? Math.round(intensityMax * Math.pow(red * factor, gamma)) : 0;
+  green = green !== 0 ? Math.round(intensityMax * Math.pow(green * factor, gamma)) : 0;
+  blue = blue !== 0 ? Math.round(intensityMax * Math.pow(blue * factor, gamma)) : 0;
+  return `rgb(${red},${green},${blue})`;
+}
+
+function updateBeamColor(){
+  var lambda = lightSource.lambda_nm;
+  var beam = document.getElementById("beam");
+  var color;
+  if(lambda < 380){
+    color = 'rgb(148,0,211)';
+  }else if(lambda > 750){
+    color = 'rgb(255,0,0)';
+  }else{
+    color = wavelengthToRGB(lambda);
+  }
+  beam.style.background = color;
+  beam.style.boxShadow = `0 0 10px ${color}`;
+}
+
+document.getElementById("light-source").addEventListener("click", function(){
+  openLightModal();
+});
+
+function openLightModal(){
+  document.getElementById("src-type").value = lightSource.type;
+  document.getElementById("src-lambda").value = lightSource.lambda_nm;
+  document.getElementById("src-w0").value = lightSource.w0_mm;
+  document.getElementById("src-radius").value = lightSource.radius_mm;
+  
+  toggleSourceParams(); // 刷新显示状态
+  updateLightUI();
+  document.getElementById("light-modal").style.display = "flex";
+}
+
+function toggleSourceParams(){
+  var t = document.getElementById("src-type").value;
+  if(t === "Gaussian"){
+    document.getElementById("group-gaussian").style.display = "flex";
+    document.getElementById("group-plane").style.display = "none";
+  } else {
+    document.getElementById("group-gaussian").style.display = "none";
+    document.getElementById("group-plane").style.display = "flex";
+  }
+}
+
+function closeLightModal(){
+  document.getElementById("light-modal").style.display = "none";
+}
+
+function toggleLightPowerFromModal(){
+  lightSource.isOn = !lightSource.isOn;
+  updateLightUI();
+}
+
+function saveLightSettings(){
+  var type = document.getElementById("src-type").value;
+  var lambda = parseFloat(document.getElementById("src-lambda").value);
+  
+  if(!(lambda>0)){ alert("波长必须为正数。"); return; }
+
+  if(type === "Gaussian"){
+    var w0 = parseFloat(document.getElementById("src-w0").value);
+    if(!(w0>0)){ alert("束腰半径必须为正数。"); return; }
+    lightSource.w0_mm = w0;
+  } else {
+    var rad = parseFloat(document.getElementById("src-radius").value);
+    if(!(rad>0)){ alert("光斑半径必须为正数。"); return; }
+    lightSource.radius_mm = rad;
+  }
+
+  lightSource.type = type;
+  lightSource.lambda_nm = lambda;
+
+  updateLightUI();
+  closeLightModal();
+}
+
+/* =========================
+   Sidebar & Settings Logic
+========================= */
+function initSidebarValues() {
+  document.getElementById("sb-param-L").value = simParams.L;
+  document.getElementById("sb-param-N").value = simParams.N;
+  document.getElementById("sb-param-delta").value = simParams.delta;
+  document.getElementById("sb-param-padding-switch").checked = simParams.usePadding;
+  document.getElementById("sb-param-padding-factor").value = simParams.paddingFactor;
+  togglePaddingInputSidebar();
+}
+
+function togglePaddingInputSidebar(){
+  var isChecked = document.getElementById("sb-param-padding-switch").checked;
+  var group = document.getElementById("sb-padding-factor-group");
+  var input = document.getElementById("sb-param-padding-factor");
+
+  if(isChecked){
+    group.style.opacity = "1";
+    group.style.pointerEvents = "auto";
+    input.disabled = false;
+  }else{
+    group.style.opacity = "0.5";
+    group.style.pointerEvents = "none";
+    input.disabled = true;
+  }
+}
+
+function saveSidebarSettings(){
+  var newL = parseFloat(document.getElementById("sb-param-L").value);
+  var newDelta = parseFloat(document.getElementById("sb-param-delta").value);
+  var newN = parseInt(document.getElementById("sb-param-N").value, 10);
+  var usePad = document.getElementById("sb-param-padding-switch").checked;
+  var newFactor = parseInt(document.getElementById("sb-param-padding-factor").value, 10);
+
+  if(newL<=0 || newDelta<=0 || newN<=0){
+    alert("参数必须为正数。"); return;
+  }
+  if(!isPowerOfTwo(newN)){
+    alert("N 必须为 2 的幂（如 256/512/1024）。"); return;
+  }
+  if(usePad){
+    if(!(newFactor>=1) || !Number.isInteger(newFactor)){
+      alert("填充倍数必须为正整数。"); return;
+    }
+    if(!isPowerOfTwo(newN * newFactor)){
+      alert("N*填充倍数 仍需为 2 的幂。"); return;
+    }
+  }
+
+  // 1. 保存旧位置(mm)
+  var comps = document.querySelectorAll('.optical-component');
+  var savedPositions = [];
+  comps.forEach(function(el){
+    savedPositions.push({
+      id: el.dataset.id,
+      mm: leftToPositionMm(parseFloat(el.style.left))
+    });
+  });
+
+  // 2. 更新参数
+  simParams.L = newL;
+  simParams.delta = newDelta;
+  simParams.N = newN;
+  simParams.usePadding = usePad;
+  if(usePad) simParams.paddingFactor = newFactor;
+
+  // 3. 更新 UI
+  updateRailScale();
+
+  // 4. 重新安置元件
+  savedPositions.forEach(function(item){
+    var el = document.querySelector('.optical-component[data-id="'+item.id+'"]');
+    if(el){
+      var newLeft = positionMmToLeft(item.mm);
+      el.style.left = newLeft + "px";
+    }
+  });
+
+  updateWorkbench();
+  alert("设置已保存，元件位置已重新校准。");
+}
+
+function resetSidebarParams(){
+  if(!confirm("确定要重置所有环境参数吗？")) return;
+  simParams = { L:100, delta:10, N:512, usePadding:false, paddingFactor:2 };
+  initSidebarValues();
+  saveSidebarSettings(); 
+}
+
+/* =========================
+   Component chooser
+========================= */
+function openComponentModal(){
+  document.getElementById("component-modal").style.display = "flex";
+}
+function closeComponentModal(){
+  document.getElementById("component-modal").style.display = "none";
+}
+function selectComponent(type){
+  componentCounters[type] = (componentCounters[type]||0) + 1;
+  var newComp = addOpticalComponent(type);
+  closeComponentModal();
+  if(type !== 'CCD'){
+    openParamModal(newComp);
+  }
+  return newComp;
+}
+
+/* =========================
+   Add component
+========================= */
+function addOpticalComponent(type){
+  var desiredCenter = railStartX + componentGap*componentCount;
+  desiredCenter = clamp(desiredCenter, railStartX, railEndX);
+  var finalLeft = clamp(desiredCenter - halfW, minLeft, maxLeft);
+
+  var comp = document.createElement("div");
+  comp.className = "optical-component";
+  comp.style.left = finalLeft + "px";
+
+  var cid = nextComponentId++;
+  comp.dataset.id = String(cid);
+  comp.dataset.type = type;
+
+  var index = componentCounters[type];
+  var fullName = nameMap[type] + "_" + index;
+  comp.dataset.fullName = (type==="CCD" ? "CCD：" : "") + fullName;
+
+  comp.dataset.params = JSON.stringify({});
+  comp.dataset.previewData = "";
+
+  if(type !== 'CCD') {
+    comp.classList.add('unconfigured');
+  }
+
+  var img = document.createElement("img");
+  img.src = type + ".png";
+  img.alt = type;
+  img.onerror = function(){ 
+    this.style.display="none"; 
+    comp.style.background="#eee"; 
+    comp.style.border="1px solid #999"; 
+    comp.style.fontSize="10px"; 
+    comp.textContent=type; 
+    comp.style.display="flex"; 
+    comp.style.alignItems="center"; 
+    comp.style.justifyContent="center"; 
+  };
+  comp.appendChild(img);
+
+  // 警告图标
+  var warningIcon = document.createElement("div");
+  warningIcon.className = "warning-icon";
+  warningIcon.textContent = "!";
+  comp.appendChild(warningIcon);
+
+  // Tooltip
+  var tooltip = document.createElement("div");
+  tooltip.className = "component-tooltip";
+  var nameDiv = document.createElement("div");
+  nameDiv.className = "name";
+  nameDiv.textContent = comp.dataset.fullName;
+  var delBtn = document.createElement("button");
+  delBtn.className = "delete-btn";
+  delBtn.textContent = "删除元件";
+  delBtn.onclick = function(e){
+    e.stopPropagation(); e.preventDefault();
+    comp.remove();
+    componentCount = Math.max(0, componentCount-1);
+    updateWorkbench();
+  };
+  delBtn.addEventListener("mousedown", function(e){ e.stopPropagation(); });
+  delBtn.addEventListener("mouseup", function(e){ e.stopPropagation(); });
+
+  tooltip.appendChild(nameDiv);
+  tooltip.appendChild(delBtn);
+  comp.appendChild(tooltip);
+
+  comp.addEventListener("mouseenter", function(){
+    if(!isDragging) tooltip.style.display = "block";
+  });
+  comp.addEventListener("mouseleave", function(){
+    tooltip.style.display = "none";
+  });
+
+  // Drag logic
+  comp.addEventListener("mousedown", function(e){
+    e.stopPropagation(); e.preventDefault();
+    currentComponent = comp;
+    isDragging = false;
+    tooltip.style.display = "none";
+
+    pressTimer = setTimeout(function(){
+      isDragging = true;
+      var offsetX = e.clientX - comp.getBoundingClientRect().left;
+      comp.style.zIndex = 30;
+      document.body.style.userSelect = "none";
+
+      function onMove(ev){
+        if(!isDragging) return;
+        var benchRect = document.getElementById("optical-bench").getBoundingClientRect();
+        var newLeft = ev.clientX - benchRect.left - offsetX;
+        newLeft = clamp(newLeft, minLeft, maxLeft);
+        comp.style.left = newLeft + "px";
+      }
+
+      function onUp(){
+        isDragging = false;
+        comp.style.zIndex = 20;
+        document.body.style.userSelect = "auto";
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("mouseleave", onUp);
+        updateWorkbench();
+      }
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      window.addEventListener("mouseleave", onUp);
+    }, 300);
+  });
+
+  comp.addEventListener("mouseup", function(){
+    clearTimeout(pressTimer);
+    if(!isDragging && currentComponent===comp){
+      if(comp.dataset.type === "CCD"){
+        showSingleCCD(comp);
+      }else{
+        openParamModal(comp);
+      }
+    }
+    currentComponent = null;
+  });
+
+  document.getElementById("components-layer").appendChild(comp);
+  componentCount++;
+  updateWorkbench();
+  return comp;
+}
+
+function getTypeName(type){
+  if(type==="CCD") return "CCD";
+  if(type==="Diaphragm") return "扩束光阑";
+  if(type==="Diffraction slice") return "衍射片";
+  if(type==="Filter") return "滤光片";
+  return "透镜";
+}
+
+/* =========================
+   Workbench
+========================= */
+function applyPositionFromInput(componentId, inputEl){
+  var comp = document.querySelector('.optical-component[data-id="'+componentId+'"]');
+  if(!comp) return;
+
+  var mm = parseFloat(inputEl.value);
+  var Lmm = simParams.L * 10.0;
+
+  var valid = !isNaN(mm) && mm>=0 && mm<=Lmm;
+  if(!valid){
+    inputEl.classList.add("invalid");
+    var curMm = leftToPositionMm(parseFloat(comp.style.left)).toFixed(2);
+    inputEl.value = curMm;
+    alert("位置不合法：请输入 0 ~ " + Lmm.toFixed(2) + " mm 之间的数值。");
+    inputEl.classList.remove("invalid");
+    return;
+  }
+
+  inputEl.classList.remove("invalid");
+  comp.style.left = positionMmToLeft(mm) + "px";
+  updateWorkbench();
+}
+
+function updateWorkbench(){
+  var wb = document.getElementById("workbench");
+  var comps = Array.prototype.slice.call(document.querySelectorAll(".optical-component"));
+  comps.sort(function(a,b){ return parseFloat(a.style.left) - parseFloat(b.style.left); });
+
+  wb.innerHTML = "";
+
+  var hint = document.createElement("div");
+  hint.className = "wb-hint";
+  hint.textContent =
+    "位置单位：mm（范围 0 ~ " + (simParams.L*10).toFixed(2) + "）。修改后失焦或回车生效。\n" +
+    "红色感叹号表示参数未配置，该元件将不参与计算。点击元件进行配置。";
+  wb.appendChild(hint);
+
+  for(var i=0;i<comps.length;i++){
+    var comp = comps[i];
+    var posMm = leftToPositionMm(parseFloat(comp.style.left)).toFixed(2);
+
+    var row = document.createElement("div");
+    row.className = "wb-row";
+
+    var isUnconf = comp.classList.contains("unconfigured");
+    var left = document.createElement("div");
+    left.className = "wb-left";
+    left.innerHTML = getTypeName(comp.dataset.type) + "(" + comp.dataset.fullName.replace("：","") + ")" + (isUnconf ? " <span style='color:red;font-weight:bold;'>(未配置)</span>" : "");
+
+    var right = document.createElement("div");
+    right.className = "wb-right";
+
+    var input = document.createElement("input");
+    input.className = "wb-input";
+    input.type = "number";
+    input.step = "0.01";
+    input.min = "0";
+    input.max = String((simParams.L*10).toFixed(2));
+    input.value = posMm;
+
+    (function(cid, inp){
+      inp.addEventListener("change", function(){ applyPositionFromInput(cid, inp); });
+      inp.addEventListener("keydown", function(e){
+        if(e.key==="Enter"){
+          e.preventDefault();
+          inp.blur();
+        }
+      });
+    })(comp.dataset.id, input);
+
+    var unit = document.createElement("span");
+    unit.className = "wb-unit";
+    unit.textContent = "mm";
+
+    right.appendChild(input);
+    right.appendChild(unit);
+
+    row.appendChild(left);
+    row.appendChild(right);
+    wb.appendChild(row);
+  }
+}
+
+/* =========================
+   Param modal (Strict Validation)
+========================= */
+function openParamModal(component){
+  currentParamComponent = component;
+
+  document.getElementById("param-modal-title").textContent =
+    component.dataset.fullName + " 参数设置";
+
+  var form = document.getElementById("param-form-content");
+  form.innerHTML = "";
+
+  var previewCanvas = document.getElementById("preview-canvas");
+  var ctx = previewCanvas.getContext("2d");
+  previewCanvas.style.display = "none";
+  ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height);
+
+  var saved = {};
+  try{ saved = JSON.parse(component.dataset.params || "{}"); }catch(e){ saved = {}; }
+
+  if(component.dataset.type === "lens"){
+    form.innerHTML =
+      '<div class="param-item"><label>焦距 f (mm):</label><input type="number" id="lens-f" placeholder="如 50" value="'+(saved.f||"")+'"></div>'+
+      '<div class="param-item"><label>口径 D (mm):</label><input type="number" id="lens-D" placeholder="如 25" value="'+(saved.D||"")+'"></div>'+
+      '<div class="upload-note">透镜透过率：T=P*exp[-i*k/(2f)*(x^2+y^2)]；P 为圆形口径函数。</div>';
+
+  }else if(component.dataset.type === "Diaphragm"){
+    form.innerHTML =
+      '<div class="param-item"><label>光阑直径 (mm):</label><input type="number" id="dia-diameter" placeholder="如 5" value="'+(saved.diameter||"")+'"></div>'+
+      '<div class="upload-note">光阑透过率：圆孔 P(x,y)。</div>';
+
+  }else if(component.dataset.type === "Filter"){
+    form.innerHTML =
+      '<div class="param-item"><label>函数 t(x,y) (mm):</label>'+
+      '<input type="text" id="filter-function" placeholder="例如: (x*x+y*y<=r*r)?1:0" value="'+(saved["function"]||"")+'"></div>'+
+      '<div class="common-functions">例子：<br>圆孔低通：(x*x + y*y <= r*r) ? 1 : 0<br>圆孔高通：(x*x + y*y > r*r) ? 1 : 0</div>'+
+      '<button class="btn" style="margin:10px auto 0 auto; display:block;" onclick="previewFilter()">预览</button>'+
+      '<div class="upload-note">滤光片透过率：实数 t(x,y)，计算时作为振幅掩模。</div>';
+
+    previewCanvas.style.display = "block";
+    if(component.dataset.previewData){
+      var im1 = new Image();
+      im1.onload = function(){ ctx.drawImage(im1,0,0,previewCanvas.width,previewCanvas.height); };
+      im1.src = component.dataset.previewData;
+    }
+
+  }else if(component.dataset.type === "Diffraction slice"){
+    var selectedType = saved.type || "function";
+    form.innerHTML =
+      '<div class="param-item"><label>衍射片类型:</label>' +
+      '<div id="diff-toggle" class="seg-toggle" data-value="'+selectedType+'" data-index="0">' +
+        '<div class="seg-inner">' +
+          '<div class="seg-knob" id="diff-knob"></div>' +
+          '<div class="seg" data-idx="0" data-value="function">函数型</div>' +
+          '<div class="seg" data-idx="1" data-value="image">图片型</div>' +
+          '<div class="seg" data-idx="2" data-value="table">表格型</div>' +
+          '<div class="seg" data-idx="3" data-value="text">文本型</div>' +
+        '</div>' +
+      '</div></div>' +
+      '<div id="diff-inputs"></div>' +
+      '<button class="btn" style="margin:10px auto 0 auto; display:block;" onclick="previewDiffraction()">预览</button>' +
+      '<div class="upload-note">衍射片透过率：取预览图灰度 / 255，作为实数振幅透过率。</div>';
+
+    initDiffSegToggle(selectedType);
+    updateDiffractionInputs(selectedType);
+
+    previewCanvas.style.display = "block";
+    if(component.dataset.previewData){
+      var im2 = new Image();
+      im2.onload = function(){ ctx.drawImage(im2,0,0,previewCanvas.width,previewCanvas.height); };
+      im2.src = component.dataset.previewData;
+    }
+
+  }else{
+    form.innerHTML = '<div class="upload-note">此元件暂无参数。</div>';
+  }
+
+  document.getElementById("param-modal").style.display = "flex";
+}
+function closeParamModal(){
+  document.getElementById("param-modal").style.display = "none";
+  currentParamComponent = null;
+}
+
+function saveParamSettings(){
+  if(!currentParamComponent) return;
+
+  var t = currentParamComponent.dataset.type;
+  var params = {};
+  var isValid = true;
+
+  if(t === "lens"){
+    var f = document.getElementById("lens-f").value;
+    var D = document.getElementById("lens-D").value;
+    if(!f || !D) isValid = false;
+    else { params.f = f; params.D = D; }
+
+  } else if(t === "Diaphragm"){
+    var d = document.getElementById("dia-diameter").value;
+    if(!d) isValid = false;
+    else params.diameter = d;
+
+  } else if(t === "Filter"){
+    var func = document.getElementById("filter-function").value;
+    if(!func) isValid = false;
+    else params["function"] = func;
+
+  } else if(t === "Diffraction slice"){
+    var toggle = document.getElementById("diff-toggle");
+    var type = toggle.getAttribute("data-value");
+    params.type = type;
+
+    if(type === "function"){
+      var func = document.getElementById("diff-function").value;
+      if(!func) isValid = false;
+      else params["function"] = func;
+
+    } else if(type === "image"){
+      var fileInput = document.getElementById("diff-image");
+      var hasNewFile = (fileInput && fileInput.files && fileInput.files.length > 0);
+      var hasOldData = (currentParamComponent.dataset.previewData && currentParamComponent.dataset.previewData.length > 0);
+      
+      if(!hasNewFile && !hasOldData) isValid = false;
+      else if(hasNewFile) params.image = fileInput.files[0].name;
+
+    } else if(type === "table"){
+      var tbl = document.getElementById("diff-table").value;
+      if(!tbl) isValid = false;
+      else params.table = tbl;
+
+    } else if(type === "text"){
+      var txt = document.getElementById("diff-text").value;
+      var h = document.getElementById("diff-text-height").value;
+      if(!txt || !h) isValid = false;
+      else { params.text = txt; params.textHeight = h; }
+    }
+  }
+
+  if(!isValid){
+    alert("请填写完整的参数！");
+    return;
+  }
+
+  currentParamComponent.dataset.params = JSON.stringify(params);
+  currentParamComponent.classList.remove("unconfigured");
+  updateWorkbench();
+
+  alert("参数已保存，元件已上线。");
+  closeParamModal();
+}
+
+/* =========================
+   Diff seg toggle
+========================= */
+function setSegSelected(toggleEl, idx){
+  var segs = toggleEl.querySelectorAll(".seg");
+  for(var i=0;i<segs.length;i++){
+    segs[i].classList.remove("selected");
+  }
+  var seg = toggleEl.querySelector('.seg[data-idx="'+idx+'"]');
+  if(seg) seg.classList.add("selected");
+
+  var knob = toggleEl.querySelector(".seg-knob");
+  knob.style.transform = "translateX(" + (idx*100) + "%)";
+  toggleEl.setAttribute("data-index", String(idx));
+}
+
+function initDiffSegToggle(selectedType){
+  var toggle = document.getElementById("diff-toggle");
+  if(!toggle) return;
+
+  var idxMap = { function:0, image:1, table:2, text:3 };
+  var idx = (selectedType in idxMap) ? idxMap[selectedType] : 0;
+
+  setSegSelected(toggle, idx);
+
+  var segs = toggle.querySelectorAll(".seg");
+  for(var i=0;i<segs.length;i++){
+    (function(seg){
+      seg.addEventListener("click", function(e){
+        e.stopPropagation();
+        var id = parseInt(seg.getAttribute("data-idx"), 10);
+        var val = seg.getAttribute("data-value");
+        toggle.setAttribute("data-value", val);
+        setSegSelected(toggle, id);
+        updateDiffractionInputs(val);
+      });
+    })(segs[i]);
+  }
+}
+
+function updateDiffractionInputs(type){
+  var inputsDiv = document.getElementById("diff-inputs");
+  if(!inputsDiv || !currentParamComponent) return;
+
+  var saved = {};
+  try{ saved = JSON.parse(currentParamComponent.dataset.params || "{}"); }catch(e){ saved = {}; }
+
+  var html = "";
+  if(type==="function"){
+    html =
+      '<div class="param-item"><label>函数 t(x,y) (mm):</label>' +
+      '<input type="text" id="diff-function" placeholder="例如: (x*x+y*y<=r*r)?1:0" value="'+(saved["function"]||"")+'"></div>' +
+      '<div class="common-functions">常用：<br>圆孔：(x*x + y*y <= r*r) ? 1 : 0<br>矩孔：(abs(x)<=w/2 && abs(y)<=h/2) ? 1 : 0<br>二维光栅：Math.cos(2*Math.PI*x/p)*Math.cos(2*Math.PI*y/p)</div>';
+
+  }else if(type==="image"){
+    html =
+      '<div class="param-item"><label>上传 PNG:</label><input type="file" id="diff-image" accept=".png"></div>' +
+      '<div class="upload-note">PNG 若非正方形将补零扩展为正方形，然后缩放至 N×N。计算透过率取预览灰度。</div>';
+
+  }else if(type==="table"){
+    html =
+      '<div class="param-item" style="align-items:flex-start;">' +
+      '<label style="padding-top:8px;">表格数据:</label>' +
+      '<textarea id="diff-table" rows="6" placeholder="Tab/逗号/空格分隔\n例如:\n1 0 1\n0 1 0\n1 0 1">'+(saved.table||"")+'</textarea></div>' +
+      '<div class="upload-note">不足 N 则补零；超出则截断。预览灰度即透过率。</div>';
+
+  }else if(type==="text"){
+    html =
+      '<div class="param-item"><label>文本:</label><input type="text" id="diff-text" placeholder="例如 Hello" value="'+(saved.text||"")+'"></div>' +
+      '<div class="param-item"><label>文本高度 (mm):</label><input type="number" id="diff-text-height" placeholder="例如 5" value="'+(saved.textHeight||"")+'"></div>' +
+      '<div class="upload-note">文本渲染为白色（透过）黑底（不透）。</div>';
+  }
+
+  inputsDiv.innerHTML = html;
+}
+
+/* =========================
+   Preview
+========================= */
+function previewDiffraction(){
+  var canvas = document.getElementById("preview-canvas");
+  var ctx = canvas.getContext("2d");
+  var N = simParams.N;
+  canvas.width = N; canvas.height = N;
+
+  var toggle = document.getElementById("diff-toggle");
+  var selectedType = toggle.getAttribute("data-value");
+
+  var data = new Uint8ClampedArray(N*N*4);
+
+  function savePreview(){
+    if(currentParamComponent){
+      currentParamComponent.dataset.previewData = canvas.toDataURL("image/png");
+    }
+  }
+
+  try{
+    if(selectedType==="function"){
+      var funcStr = document.getElementById("diff-function").value;
+      var func = new Function("x","y","return " + funcStr + ";");
+      for(var i=0;i<N;i++){
+        for(var j=0;j<N;j++){
+          var x = (j - N/2) * simParams.delta / N;
+          var y = (i - N/2) * simParams.delta / N;
+          var v = func(x,y);
+          v = Math.min(Math.max(v,0),1)*255;
+          var idx = (i*N + j)*4;
+          data[idx]=data[idx+1]=data[idx+2]=v;
+          data[idx+3]=255;
+        }
+      }
+      ctx.putImageData(new ImageData(data,N,N),0,0);
+      savePreview();
+      return;
+    }
+
+    if(selectedType==="table"){
+      var tableStr = document.getElementById("diff-table").value;
+      var rows = tableStr.split("\n").map(function(r){return r.trim();}).filter(function(r){return r.length>0;})
+        .map(function(row){ return row.split(/[\t ,]+/).map(Number); });
+      if(rows.length===0){ alert("表格数据为空"); return; }
+
+      while(rows.length < N) rows.push(new Array(rows[0].length).fill(0));
+      rows = rows.slice(0, N);
+
+      for(var ii=0; ii<N; ii++){
+        while(rows[ii].length < N) rows[ii].push(0);
+        rows[ii] = rows[ii].slice(0,N);
+      }
+      for(var y2=0;y2<N;y2++){
+        for(var x2=0;x2<N;x2++){
+          var vv = rows[y2][x2]*255;
+          vv = Math.min(Math.max(vv,0),255);
+          var id2 = (y2*N + x2)*4;
+          data[id2]=data[id2+1]=data[id2+2]=vv;
+          data[id2+3]=255;
+        }
+      }
+      ctx.putImageData(new ImageData(data,N,N),0,0);
+      savePreview();
+      return;
+    }
+
+    if(selectedType==="text"){
+      var text = document.getElementById("diff-text").value;
+      var h = parseFloat(document.getElementById("diff-text-height").value) || 5;
+
+      ctx.fillStyle = "black";
+      ctx.fillRect(0,0,N,N);
+      ctx.fillStyle = "white";
+      ctx.font = String(h * N / simParams.delta) + "px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, N/2, N/2);
+      savePreview();
+      return;
+    }
+
+    if(selectedType==="image"){
+      var fileInput = document.getElementById("diff-image");
+      if(!fileInput || !fileInput.files || fileInput.files.length===0){
+        alert("请上传 PNG 文件");
+        return;
+      }
+      var file = fileInput.files[0];
+      var img = new Image();
+      img.onload = function(){
+        var size = Math.max(img.width, img.height);
+        var temp = document.createElement("canvas");
+        temp.width = size; temp.height = size;
+        var tctx = temp.getContext("2d");
+        tctx.fillStyle = "black";
+        tctx.fillRect(0,0,size,size);
+        tctx.drawImage(img, (size-img.width)/2, (size-img.height)/2);
+
+        var imgData = tctx.getImageData(0,0,size,size).data;
+        var scale = size / N;
+
+        for(var y3=0;y3<N;y3++){
+          for(var x3=0;x3<N;x3++){
+            var sy = Math.floor(y3*scale);
+            var sx = Math.floor(x3*scale);
+            var sidx = (sy*size + sx)*4;
+            var gray = (imgData[sidx] + imgData[sidx+1] + imgData[sidx+2]) / 3;
+            var id3 = (y3*N + x3)*4;
+            data[id3]=data[id3+1]=data[id3+2]=gray;
+            data[id3+3]=255;
+          }
+        }
+        ctx.putImageData(new ImageData(data,N,N),0,0);
+        savePreview();
+      };
+      img.src = URL.createObjectURL(file);
+      return;
+    }
+  }catch(e){
+    alert("预览失败: " + e.message);
+  }
+}
+
+function previewFilter(){
+  var canvas = document.getElementById("preview-canvas");
+  var ctx = canvas.getContext("2d");
+  var N = simParams.N;
+  canvas.width = N; canvas.height = N;
+
+  var data = new Uint8ClampedArray(N*N*4);
+
+  function savePreview(){
+    if(currentParamComponent){
+      currentParamComponent.dataset.previewData = canvas.toDataURL("image/png");
+    }
+  }
+
+  try{
+    var funcStr = document.getElementById("filter-function").value;
+    var func = new Function("x","y","return " + funcStr + ";");
+    for(var i=0;i<N;i++){
+      for(var j=0;j<N;j++){
+        var x = (j - N/2) * simParams.delta / N;
+        var y = (i - N/2) * simParams.delta / N;
+        var v = func(x,y);
+        v = Math.min(Math.max(v,0),1)*255;
+        var idx = (i*N + j)*4;
+        data[idx]=data[idx+1]=data[idx+2]=v;
+        data[idx+3]=255;
+      }
+    }
+    ctx.putImageData(new ImageData(data,N,N),0,0);
+    savePreview();
+  }catch(e){
+    alert("预览失败: " + e.message);
+  }
+}
+
+/* =========================
+   Clear rail
+========================= */
+function openClearRailModal(){
+  document.getElementById("clear-rail-modal").style.display = "flex";
+}
+function closeClearRailModal(){
+  document.getElementById("clear-rail-modal").style.display = "none";
+}
+function confirmClearRail(){
+  document.getElementById("components-layer").innerHTML = "";
+  componentCounters = { CCD:0, Diaphragm:0, "Diffraction slice":0, Filter:0, lens:0 };
+  componentCount = 0;
+  alert("导轨已清空");
+  closeClearRailModal();
+  updateWorkbench();
+}
+
+/* =========================
+   4f system
+========================= */
+function open4fModal(){
+  document.getElementById("4f-modal").style.display = "flex";
+}
+function close4fModal(){
+  document.getElementById("4f-modal").style.display = "none";
+}
+function confirm4fSetup(){
+  // 0. 清空导轨
+  document.getElementById("components-layer").innerHTML = "";
+  componentCounters = { CCD:0, Diaphragm:0, "Diffraction slice":0, Filter:0, lens:0 };
+  componentCount = 0;
+
+  // 1. 导轨长度200cm
+  simParams.L = 200;
+  document.getElementById("sb-param-L").value = 200;
+  updateRailScale();
+
+  // 2. 光源平行光, r=10mm
+  lightSource.type = "Plane";
+  lightSource.radius_mm = 10;
+  updateLightUI();
+
+  // 3. 衍射片 at 0mm, text "S", height 9mm
+  var diffComp = addOpticalComponent("Diffraction slice");
+  diffComp.style.left = positionMmToLeft(0) + "px";
+  diffComp.dataset.params = JSON.stringify({type: "text", text: "S", textHeight: 9});
+  diffComp.classList.remove("unconfigured");
+
+  // 4. 两个透镜 at 500mm and 1500mm, f=500, D=10
+  var lens1 = addOpticalComponent("lens");
+  lens1.style.left = positionMmToLeft(500) + "px";
+  lens1.dataset.params = JSON.stringify({f: 500, D: 10});
+  lens1.classList.remove("unconfigured");
+
+  var lens2 = addOpticalComponent("lens");
+  lens2.style.left = positionMmToLeft(1500) + "px";
+  lens2.dataset.params = JSON.stringify({f: 500, D: 10});
+  lens2.classList.remove("unconfigured");
+
+  // 5. 滤光片 at 1000mm, function (x*x+y*y>1)?1:0
+  var filterComp = addOpticalComponent("Filter");
+  filterComp.style.left = positionMmToLeft(1000) + "px";
+  filterComp.dataset.params = JSON.stringify({"function": "(x*x+y*y>1)?1:0"});
+  filterComp.classList.remove("unconfigured");
+
+  // 6. CCD at 2000mm
+  var ccdComp = addOpticalComponent("CCD");
+  ccdComp.style.left = positionMmToLeft(2000) + "px";
+
+  updateWorkbench();
+  close4fModal();
+}
+
+/* =========================
+   CCD view modal
+========================= */
+function createCCDModal(){
+  var template = document.getElementById("ccd-view-modal-template").cloneNode(true);
+  var modalId = "ccd-view-modal-" + (++ccdModalCounters);
+  template.id = modalId;
+  template.style.display = "none";
+  template.querySelector('.modal-overlay').id = modalId;
+  document.body.appendChild(template.querySelector('.modal-overlay'));
+  return document.getElementById(modalId);
+}
+
+function closeCCDView(btn){
+  var modal = btn.closest('.modal-overlay');
+  modal.style.display = "none";
+  modal.remove();
+}
+
+function showSingleCCD(ccdComp){
+  var modal = createCCDModal();
+  appendCCDPanel(ccdComp, modal);
+  modal.style.display = "flex";
+  makeDraggable(modal);
+  var content = modal.querySelector('.modal-content');
+  content.style.marginLeft = '0px';
+  content.style.marginTop = '0px';
+  activateModal(modal);
+}
+
+function readCCDAll(){
+  var all = Array.prototype.slice.call(document.querySelectorAll(".optical-component"));
+  var ccds = all.filter(function(c){ return c.dataset.type==="CCD"; });
+  ccds.sort(function(a,b){ return getCenterPx(a) - getCenterPx(b); });
+
+  if(ccds.length===0){
+    alert("导轨上没有 CCD 元件。");
+    return;
+  }
+
+  if(!lightSource.isOn){
+    alert("警告：光源未开启，将输出全黑 CCD 图像。");
+  }
+
+  for(var i=0;i<ccds.length;i++){
+    var modal = createCCDModal();
+    appendCCDPanel(ccds[i], modal);
+    modal.style.display = "flex";
+    makeDraggable(modal);
+    var content = modal.querySelector('.modal-content');
+    content.style.marginLeft = (i * 20) + 'px';
+    content.style.marginTop = (i * 20) + 'px';
+    activateModal(modal);
+  }
+}
+
+function activateModal(modal) {
+  modal.addEventListener('click', function() {
+    var allModals = document.querySelectorAll('.ccd-view-modal');
+    allModals.forEach(m => { m.style.zIndex = 1000; });
+    modal.style.zIndex = 1001;
+  });
+}
+
+function appendCCDPanel(ccdComp, modal){
+  var panelContainer = modal.querySelector('.ccd-panel');
+  panelContainer.innerHTML = "";
+
+  var posMm = leftToPositionMm(parseFloat(ccdComp.style.left)).toFixed(2);
+
+  var title = document.createElement("h3");
+  title.className = "modal-header";
+  title.textContent = ccdComp.dataset.fullName.replace("：","") + "（z = " + posMm + " mm）";
+  panelContainer.appendChild(title);
+
+  var canvas = document.createElement("canvas");
+  canvas.className = "ccd-canvas";
+  canvas.width = simParams.N;
+  canvas.height = simParams.N;
+  panelContainer.appendChild(canvas);
+
+  var loading = document.createElement("div");
+  loading.className = "ccd-loading";
+  loading.textContent = "计算中...";
+  panelContainer.appendChild(loading);
+
+  var meta = document.createElement("div");
+  meta.className = "ccd-meta";
+  meta.textContent =
+    "光源参数：类型=" + (lightSource.type === "Gaussian" ? "高斯光束" : "平行光") + "（" + (lightSource.isOn ? "ON" : "OFF") + "）\n" +
+    "波长 λ=" + lightSource.lambda_nm + " nm\n" +
+    (lightSource.type==="Gaussian" ? ("束腰半径 w0=" + lightSource.w0_mm + " mm") : ("光斑半径 r=" + lightSource.radius_mm + " mm")) + "\n" +
+    "计算网格：采样点 N=" + simParams.N + "\n" +
+    "计算窗口：delta=" + simParams.delta + " mm" +
+    (simParams.usePadding ? ("\n零填充：paddingFactor=" + simParams.paddingFactor + "x") : "") +
+    "\n传播方法：角谱法 (ASM) - 分段传播 + 元件透过率作用\n" +
+    "CCD 输出：强度分布 I = |U|^2（归一化显示）";
+  panelContainer.appendChild(meta);
+
+  var exportDiv = document.createElement("div");
+  exportDiv.style.marginTop = "10px";
+  exportDiv.style.display = "flex";
+  exportDiv.style.justifyContent = "flex-end";
+  exportDiv.style.gap = "10px";
+  panelContainer.appendChild(exportDiv);
+
+  computeCCDImageToCanvas_ASM(ccdComp, canvas).then(function(result){
+    loading.textContent = "完成";
+    if(result && result.pathSummary){
+      meta.textContent += "\n\n传播路径：" + result.pathSummary;
+    }
+    if(result && result.warn){
+      meta.textContent += "\n\n计算警告：" + result.warn;
+    }
+
+    var intensity = result.intensity;
+    var maxI = result.maxI;
+
+    var exportPngBtn = document.createElement("button");
+    exportPngBtn.className = "ccd-export-btn";
+    exportPngBtn.textContent = "输出为PNG";
+    exportPngBtn.onclick = function() {
+      var link = document.createElement('a');
+      link.download = 'ccd_image.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    exportDiv.appendChild(exportPngBtn);
+
+    var exportExcelBtn = document.createElement("button");
+    exportExcelBtn.className = "ccd-export-btn";
+    exportExcelBtn.textContent = "输出为Excel";
+    exportExcelBtn.onclick = function() {
+      var csvContent = "data:text/csv;charset=utf-8,";
+      for(var y=0; y<simParams.N; y++){
+        var row = [];
+        for(var x=0; x<simParams.N; x++){
+          row.push((intensity[y*simParams.N + x] / maxI).toFixed(6));
+        }
+        csvContent += row.join(",") + "\n";
+      }
+      var encodedUri = encodeURI(csvContent);
+      var link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "ccd_intensity.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    exportDiv.appendChild(exportExcelBtn);
+
+  }).catch(function(e){
+    loading.textContent = "失败：" + (e && e.message ? e.message : e);
+  });
+}
+
+/* =========================================================
+   Physics Core: ASM & FFT
+========================================================= */
+function listUpstreamElementsForCCD(ccdComp){
+  var ccdZmm = leftToPositionMm(parseFloat(ccdComp.style.left));
+  var all = Array.prototype.slice.call(document.querySelectorAll(".optical-component"));
+  
+  // 过滤掉未配置参数的元件
+  var elems = all.filter(function(c){ 
+      return c.dataset.type !== "CCD" && !c.classList.contains("unconfigured"); 
+    })
+    .map(function(c){
+      var z = leftToPositionMm(parseFloat(c.style.left));
+      return { comp:c, zmm:z };
+    })
+    .filter(function(o){ return o.zmm < ccdZmm; })
+    .sort(function(a,b){ return a.zmm - b.zmm; });
+
+  return { ccdZmm: ccdZmm, list: elems };
+}
+
+function drawBlack(canvas, N){
+  var ctx = canvas.getContext("2d");
+  var imgData = ctx.createImageData(N,N);
+  for(var i=0;i<imgData.data.length;i+=4){
+    imgData.data[i]=0; imgData.data[i+1]=0; imgData.data[i+2]=0; imgData.data[i+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+function drawIntensityToCanvas(intensity, canvas, N, maxI){
+  if(!(maxI>0)) maxI = 1;
+  var ctx = canvas.getContext("2d");
+  var imgData = ctx.createImageData(N,N);
+  for(var i=0;i<intensity.length;i++){
+    var v = Math.floor((intensity[i]/maxI) * 255);
+    if(v<0) v=0; if(v>255) v=255;
+    var idx = i*4;
+    imgData.data[idx]=v;
+    imgData.data[idx+1]=v;
+    imgData.data[idx+2]=v;
+    imgData.data[idx+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+function applyComplexTransmissionInplace(re, im, NP, N, off, Tre, Tim){
+  for(var y=0;y<N;y++){
+    var yy = y + off;
+    var base = yy*NP;
+    var rowBaseT = y*N;
+    for(var x=0;x<N;x++){
+      var xx = x + off;
+      var idx = base + xx;
+      var tRe = Tre[rowBaseT + x];
+      var tIm = Tim ? Tim[rowBaseT + x] : 0;
+
+      var a = re[idx], b = im[idx];
+      re[idx] = a*tRe - b*tIm;
+      im[idx] = a*tIm + b*tRe;
+    }
+  }
+}
+
+/* ===== Transmission Functions ===== */
+function buildDiaphragmTreTim(comp, N, dx){
+  var params = {};
+  try{ params = JSON.parse(comp.dataset.params || "{}"); }catch(e){ params = {}; }
+  var Dmm = parseFloat(params.diameter);
+  if(!(Dmm>0)) return null;
+
+  var R = (Dmm*1e-3)/2; 
+  var R2 = R*R;
+
+  var Tre = new Float64Array(N*N);
+  for(var y=0;y<N;y++){
+    var Y = (y - N/2) * dx;
+    for(var x=0;x<N;x++){
+      var X = (x - N/2) * dx;
+      Tre[y*N + x] = (X*X + Y*Y <= R2) ? 1 : 0;
+    }
+  }
+  return { Tre: Tre, Tim: null };
+}
+
+function buildLensTreTim(comp, N, dx, k){
+  var params = {};
+  try{ params = JSON.parse(comp.dataset.params || "{}"); }catch(e){ params = {}; }
+  var fmm = parseFloat(params.f);
+  var Dmm = parseFloat(params.D);
+  if(!(fmm>0) || !(Dmm>0)) return null;
+
+  var f = fmm * 1e-3;          
+  var R = (Dmm*1e-3)/2;        
+  var R2 = R*R;
+
+  var Tre = new Float64Array(N*N);
+  var Tim = new Float64Array(N*N);
+  var coef = -k/(2*f); 
+
+  for(var y=0;y<N;y++){
+    var Y = (y - N/2) * dx;
+    for(var x=0;x<N;x++){
+      var X = (x - N/2) * dx;
+      var r2 = X*X + Y*Y;
+      if(r2 > R2){
+        Tre[y*N + x] = 0;
+        Tim[y*N + x] = 0;
+      }else{
+        var phase = coef * r2;     
+        Tre[y*N + x] = Math.cos(phase);
+        Tim[y*N + x] = Math.sin(phase);
+      }
+    }
+  }
+  return { Tre: Tre, Tim: Tim };
+}
+
+function buildRealFromFunction(funcStr, N){
+  var Tre = new Float64Array(N*N);
+  var func = new Function("x","y","return " + funcStr + ";");
+  for(var y=0;y<N;y++){
+    for(var x=0;x<N;x++){
+      var xx = (x - N/2) * simParams.delta / N; 
+      var yy = (y - N/2) * simParams.delta / N; 
+      var v = func(xx, yy);
+      v = Math.min(Math.max(v,0),1);
+      Tre[y*N + x] = v;
+    }
+  }
+  return { Tre: Tre, Tim: null };
+}
+
+function realFromPreviewDataURL(dataURL, N){
+  return new Promise(function(resolve, reject){
+    var img = new Image();
+    img.onload = function(){
+      var c = document.createElement("canvas");
+      c.width = N; c.height = N;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(img,0,0,N,N);
+      var d = ctx.getImageData(0,0,N,N).data;
+
+      var Tre = new Float64Array(N*N);
+      for(var i=0;i<N*N;i++){
+        var idx = i*4;
+        var gray = (d[idx] + d[idx+1] + d[idx+2]) / 3;
+        Tre[i] = gray / 255.0; 
+      }
+      resolve({ Tre: Tre, Tim: null });
+    };
+    img.onerror = function(){ reject(new Error("无法读取预览图（previewData）")); };
+    img.src = dataURL;
+  });
+}
+
+function buildDiffractionRealFromParams(params, N){
+  var type = params.type || "function";
+  if(type==="function" && params["function"]){
+    return buildRealFromFunction(params["function"], N);
+  }
+  if(type==="table" && params.table){
+    return buildRealFromTable(params.table, N);
+  }
+  if(type==="text" && params.text){
+    var h = parseFloat(params.textHeight) || 5;
+    return buildRealFromText(params.text, h, N);
+  }
+  return null;
+}
+
+function buildRealFromTable(tableStr, N){
+  var rows = tableStr.split("\n").map(function(r){return r.trim();}).filter(function(r){return r.length>0;})
+    .map(function(row){ return row.split(/[\t ,]+/).map(Number); });
+  if(rows.length===0) return null;
+
+  while(rows.length < N) rows.push(new Array(rows[0].length).fill(0));
+  rows = rows.slice(0, N);
+  for(var i=0;i<N;i++){
+    while(rows[i].length < N) rows[i].push(0);
+    rows[i] = rows[i].slice(0, N);
+  }
+
+  var Tre = new Float64Array(N*N);
+  for(var y=0;y<N;y++){
+    for(var x=0;x<N;x++){
+      var v = rows[y][x];
+      v = Math.min(Math.max(v,0),1);
+      Tre[y*N + x] = v;
+    }
+  }
+  return { Tre: Tre, Tim: null };
+}
+
+function buildRealFromText(text, heightMm, N){
+  var c = document.createElement("canvas");
+  c.width = N; c.height = N;
+  var ctx = c.getContext("2d");
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0,0,N,N);
+  ctx.fillStyle = "white";
+  ctx.font = String(heightMm * N / simParams.delta) + "px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, N/2, N/2);
+
+  var img = ctx.getImageData(0,0,N,N).data;
+  var Tre = new Float64Array(N*N);
+  for(var i=0;i<N*N;i++){
+    var idx = i*4;
+    var gray = (img[idx] + img[idx+1] + img[idx+2]) / 3;
+    Tre[i] = gray/255.0;
+  }
+  return { Tre: Tre, Tim: null };
+}
+
+async function getElementTransmission(comp, N, dx, k){
+  var t = comp.dataset.type;
+  var params = {};
+  try{ params = JSON.parse(comp.dataset.params || "{}"); }catch(e){ params = {}; }
+
+  if(t==="Diaphragm"){
+    return buildDiaphragmTreTim(comp, N, dx);
+  }
+  if(t==="lens"){
+    return buildLensTreTim(comp, N, dx, k);
+  }
+  if(t==="Filter"){
+    if(params["function"]){
+      return buildRealFromFunction(params["function"], N);
+    }
+    if(comp.dataset.previewData && comp.dataset.previewData.length>0){
+      return await realFromPreviewDataURL(comp.dataset.previewData, N);
+    }
+    return null;
+  }
+  if(t==="Diffraction slice"){
+    if(comp.dataset.previewData && comp.dataset.previewData.length>0){
+      return await realFromPreviewDataURL(comp.dataset.previewData, N);
+    }
+    var rebuilt = buildDiffractionRealFromParams(params, N);
+    return rebuilt;
+  }
+  return null;
+}
+
+/* =========================
+   Main computation (Dual Source Support)
+========================= */
+function computeCCDImageToCanvas_ASM(ccdComp, canvas){
+  return new Promise(function(resolve, reject){
+    var N = simParams.N;
+
+    if(!lightSource.isOn){
+      drawBlack(canvas, N);
+      resolve({ pathSummary:"光源 OFF -> CCD=黑", intensity: new Float64Array(N*N), maxI: 1 });
+      return;
+    }
+
+    var pad = simParams.usePadding ? simParams.paddingFactor : 1;
+    var NP = N * pad;
+
+    if(!isPowerOfTwo(NP)){
+      reject(new Error("FFT 需要 NP=N*paddingFactor 为 2 的幂，当前 NP=" + NP));
+      return;
+    }
+
+    var lambda = lightSource.lambda_nm * 1e-9;  // m
+    var k = 2*Math.PI / lambda;                 // 1/m
+    var dx = (simParams.delta / N) * 1e-3;      // m
+
+    var kxArr = new Float64Array(NP);
+    var kyArr = new Float64Array(NP);
+    for(var i=0;i<NP;i++){
+      var ii = (i <= NP/2) ? i : (i - NP);
+      var fx = ii / (NP * dx);     // cycles/m
+      var kk = 2*Math.PI*fx;       // rad/m
+      kxArr[i] = kk;
+      kyArr[i] = kk;
+    }
+
+    var re = new Float64Array(NP*NP);
+    var im = new Float64Array(NP*NP);
+
+    var off = (NP - N) >> 1;
+
+    // Initialize Field at z=0 based on Source Type
+    for(var y=0;y<N;y++){
+      var yy = y + off;
+      var Y = (y - N/2) * dx;
+      for(var x=0;x<N;x++){
+        var xx = x + off;
+        var X = (x - N/2) * dx;
+        
+        var amp = 0.0;
+        if(lightSource.type === "Plane") {
+           var R = lightSource.radius_mm * 1e-3;
+           amp = (X*X + Y*Y <= R*R) ? 1.0 : 0.0;
+        } else {
+           var w0 = lightSource.w0_mm * 1e-3;
+           amp = Math.exp(-(X*X + Y*Y)/(w0*w0));
+        }
+
+        re[yy*NP + xx] = amp;
+      }
+    }
+
+    var info = listUpstreamElementsForCCD(ccdComp);
+    var ccdZmm = info.ccdZmm;
+    var list = info.list;
+    var zPrevMm = 0;
+
+    var pathNames = [];
+    var warnText = "";
+
+    (async function(){
+      try{
+        for(var idx=0; idx<list.length; idx++){
+          var item = list[idx];
+          var comp = item.comp;
+          var zNowMm = item.zmm;
+          var dzMm = zNowMm - zPrevMm;
+
+          if(dzMm > 0){
+            await propagateASM_inplace(re, im, NP, dx, k, kxArr, kyArr, dzMm*1e-3);
+          }
+
+          var trans = await getElementTransmission(comp, N, dx, k);
+          var typeName = getTypeName(comp.dataset.type);
+          pathNames.push(typeName + "@"+zNowMm.toFixed(2)+"mm");
+
+          if(!trans){
+            warnText = warnText || ("部分元件缺少可用透过率，将跳过其作用。");
+          }else{
+            applyComplexTransmissionInplace(re, im, NP, N, off, trans.Tre, trans.Tim);
+          }
+          zPrevMm = zNowMm;
+        }
+
+        var dzToCCDmm = ccdZmm - zPrevMm;
+        if(dzToCCDmm > 0){
+          await propagateASM_inplace(re, im, NP, dx, k, kxArr, kyArr, dzToCCDmm*1e-3);
+        }
+
+        var intensity = new Float64Array(N*N);
+        var maxI = 0;
+        var p = 0;
+        for(var y2=0;y2<N;y2++){
+          var yy2 = y2 + off;
+          for(var x2=0;x2<N;x2++){
+            var xx2 = x2 + off;
+            var a = re[yy2*NP + xx2];
+            var b = im[yy2*NP + xx2];
+            var I = a*a + b*b;
+            intensity[p++] = I;
+            if(I>maxI) maxI = I;
+          }
+        }
+        drawIntensityToCanvas(intensity, canvas, N, maxI);
+
+        var pathSummary = (pathNames.length>0)
+          ? ("z=0 -> " + pathNames.join(" -> ") + " -> CCD@"+ccdZmm.toFixed(2)+"mm")
+          : ("z=0 -> CCD@"+ccdZmm.toFixed(2)+"mm");
+
+        resolve({ pathSummary: pathSummary, warn: warnText, intensity: intensity, maxI: maxI });
+      }catch(e){
+        reject(e);
+      }
+    })();
+  });
+}
+
+async function propagateASM_inplace(re, im, N, dx, k, kxArr, kyArr, dz){
+  fft2dInPlace(re, im, N, false);
+
+  for(var y=0;y<N;y++){
+    var ky = kyArr[y];
+    var ky2 = ky*ky;
+    for(var x=0;x<N;x++){
+      var kx = kxArr[x];
+      var kx2 = kx*kx;
+
+      var id = y*N + x;
+      var kxy2 = kx2 + ky2;
+
+      if(kxy2 <= k*k){
+        var kz = Math.sqrt(k*k - kxy2);
+        var phase = kz * dz;
+        var c = Math.cos(phase);
+        var s = Math.sin(phase);
+        var a = re[id], b = im[id];
+        re[id] = a*c - b*s;
+        im[id] = a*s + b*c;
+      }else{
+        var alpha = Math.sqrt(kxy2 - k*k);
+        var att = Math.exp(-alpha * dz);
+        re[id] *= att;
+        im[id] *= att;
+      }
+    }
+  }
+
+  fft2dInPlace(re, im, N, true);
+  await new Promise(requestAnimationFrame);
+}
+
+/* =========================
+   FFT radix-2
+========================= */
+function bitReversePermute(re, im, n){
+  var j = 0;
+  for(var i=0;i<n;i++){
+    if(i<j){
+      var tr = re[i]; re[i]=re[j]; re[j]=tr;
+      var ti = im[i]; im[i]=im[j]; im[j]=ti;
+    }
+    var m = n >> 1;
+    while(j>=m && m>=2){
+      j -= m;
+      m >>= 1;
+    }
+    j += m;
+  }
+}
+
+function fft1d(re, im, inverse){
+  var n = re.length;
+  bitReversePermute(re, im, n);
+
+  for(var len=2; len<=n; len<<=1){
+    var ang = (inverse ? 2 : -2) * Math.PI / len;
+    var wlen_r = Math.cos(ang);
+    var wlen_i = Math.sin(ang);
+
+    for(var i=0;i<n;i+=len){
+      var wr = 1, wi = 0;
+      for(var j=0;j<len/2;j++){
+        var u_r = re[i+j], u_i = im[i+j];
+        var v_r = re[i+j+len/2]*wr - im[i+j+len/2]*wi;
+        var v_i = re[i+j+len/2]*wi + im[i+j+len/2]*wr;
+
+        re[i+j] = u_r + v_r;
+        im[i+j] = u_i + v_i;
+        re[i+j+len/2] = u_r - v_r;
+        im[i+j+len/2] = u_i - v_i;
+
+        var nwr = wr*wlen_r - wi*wlen_i;
+        var nwi = wr*wlen_i + wi*wlen_r;
+        wr = nwr; wi = nwi;
+      }
+    }
+  }
+
+  if(inverse){
+    for(var k=0;k<n;k++){
+      re[k] /= n;
+      im[k] /= n;
+    }
+  }
+}
+
+function fft2dInPlace(re, im, N, inverse){
+  // rows
+  var rowRe = new Float64Array(N);
+  var rowIm = new Float64Array(N);
+  for(var y=0;y<N;y++){
+    var base = y*N;
+    for(var x=0;x<N;x++){
+      rowRe[x] = re[base+x];
+      rowIm[x] = im[base+x];
+    }
+    fft1d(rowRe, rowIm, inverse);
+    for(var xx=0;xx<N;xx++){
+      re[base+xx] = rowRe[xx];
+      im[base+xx] = rowIm[xx];
+    }
+  }
+  // cols
+  var colRe = new Float64Array(N);
+  var colIm = new Float64Array(N);
+  for(var x2=0;x2<N;x2++){
+    for(var y2=0;y2<N;y2++){
+      colRe[y2] = re[y2*N + x2];
+      colIm[y2] = im[y2*N + x2];
+    }
+    fft1d(colRe, colIm, inverse);
+    for(var yy=0;yy<N;yy++){
+      re[yy*N + x2] = colRe[yy];
+      im[yy*N + x2] = colIm[yy];
+    }
+  }
+}
+
+/* =========================
+   Draggable modals
+========================= */
+function makeDraggable(modal) {
+  var header = modal.querySelector('.modal-header');
+  var content = modal.querySelector('.modal-content');
+  if (!header || !content) return;
+
+  header.onmousedown = function(e) {
+    e.preventDefault();
+    var offsetX = e.clientX - content.getBoundingClientRect().left;
+    var offsetY = e.clientY - content.getBoundingClientRect().top;
+
+    function onMouseMove(ev) {
+      content.style.position = 'absolute';
+      content.style.left = (ev.clientX - offsetX) + 'px';
+      content.style.top = (ev.clientY - offsetY) + 'px';
+    }
+
+    function onMouseUp() {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+}
+
+/* =========================
+   Init
+========================= */
+window.addEventListener("load", function(){
+  var modals = document.querySelectorAll('.modal-overlay');
+  for (var i = 0; i < modals.length; i++) {
+    makeDraggable(modals[i]);
+  }
+  
+  // 初始化侧边栏数值
+  initSidebarValues();
+  
+  updateRailScale();
+  updateWorkbench();
+  updateLightUI();
+});
+</script>
+</body>
+</html>
