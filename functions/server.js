@@ -28,7 +28,8 @@ router.post('/login', async (req, res) => {
   const pwd = await redisClient.hget('lab_users', username);
   if (pwd && pwd === password) {
     req.session.isLoggedIn = true;
-    return res.redirect('/optical-lab/opticalLab.html');
+    // 直接跳转到实验室页面
+    return res.redirect('/虚拟光学实验室/opticalLab.html');
   }
   res.send('账号或密码错误 <a href="/login.html">返回</a>');
 });
@@ -42,10 +43,15 @@ router.post('/register', async (req, res) => {
   res.send('注册成功 <a href="/login.html">去登录</a>');
 });
 
-// ✅ 修复后的路由守卫（标准 Express 写法）
-router.use('/optical-lab/:path*', (req, res, next) => {
-  if (req.session.isLoggedIn) return next();
-  res.redirect('/login.html');
+// ✅ 全局鉴权：所有访问实验室页面的请求都会检查登录状态
+router.use((req, res, next) => {
+  // 如果请求的是实验室页面
+  if (req.path.startsWith('/虚拟光学实验室/')) {
+    if (!req.session.isLoggedIn) {
+      return res.redirect('/login.html');
+    }
+  }
+  next();
 });
 
 // 退出登录
